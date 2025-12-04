@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PhishGuard - Phishing Detection Tool</title>
+
+<style>
+body{font-family:Arial;background:#111827;color:white;margin:0;}
+header{background:#1f2a40;padding:15px;text-align:center;}
+h1,h2,h3{margin:5px}
+.container{max-width:800px;margin:auto;text-align:center;padding:20px;}
+input{width:80%;padding:12px;border-radius:8px;border:none;font-size:16px;}
+button{
+    margin:6px;padding:10px 18px;border:none;border-radius:8px;
+    background:#00cc88;color:white;font-size:16px;cursor:pointer;
+}
+button:hover{background:#009966}
+.hidden{display:none;}
+
+.result{margin-top:15px;padding:15px;border-radius:10px;}
+.safe{background:#2ecc71;}
+.phishing{background:#e74c3c;}
+.suspicious{background:#f39c12;}
+
+.checklist{text-align:left;padding:10px;background:#1f2a40;border-radius:8px;margin-top:15px;}
+.checklist span{display:block;margin:3px}
+
+.progress{
+    width:100%;background:#333;border-radius:7px;overflow:hidden;margin-top:10px;
+}
+.bar{
+    height:22px;width:0%;background:red;text-align:center;color:white;
+    transition:0.4s;width linear;
+}
+
+table{
+    width:100%;border-collapse:collapse;margin-top:15px;font-size:14px;
+}
+th,td{border:1px solid #333;padding:5px;}
+
+.about{
+    margin-top:20px;background:#1f2a40;padding:10px;border-radius:10px;
+}
+.report-box{
+    margin-top:15px;background:#1f2a40;padding:10px;border-radius:10px;
+}
+
+textarea{
+    width:90%;height:50px;border-radius:6px;padding:5px;border:none;
+}
+</style>
+
+</head>
+
+<body>
+
+<header>
+<h1>🛡️ PhishGuard</h1>
+<p>Phishing Detection Web Tool</p>
+</header>
+
+<div class="container">
+
+<!-- INPUT -->
+<input type="text" id="urlInput" placeholder="Paste suspicious URL here">
+<br>
+<button onclick="checkUrl()">Scan URL</button>
+
+<!-- PROGRESS BAR -->
+<div class="progress hidden" id="progressWrap">
+  <div class="bar" id="bar">0%</div>
+</div>
+
+<!-- LIVE CHECK INDICATORS -->
+<div id="checklist" class="checklist hidden">
+    <h3>🔍 Live Security Checks</h3>
+    <span id="httpsCheck">⏳ HTTPS Encryption</span>
+    <span id="lengthCheck">⏳ URL Length</span>
+    <span id="keywordCheck">⏳ Phishing Keywords</span>
+    <span id="numCheck">⏳ Numeric Tricks</span>
+    <span id="hyphenCheck">⏳ Excessive Hyphens</span>
+</div>
+
+<!-- RESULT -->
+<div id="result" class="result hidden"></div>
+
+<!-- REPORT -->
+<div id="report" class="report-box hidden">
+<h3>🚨 Report this URL</h3>
+<textarea id="reportNote" placeholder="Why do you think this is phishing?"></textarea><br>
+<button onclick="submitReport()">Submit Report</button>
+<p id="reportStatus"></p>
+</div>
+
+<!-- HISTORY -->
+<h3>📜 Scan History</h3>
+<table>
+<tr>
+<th>URL</th>
+<th>Status</th>
+<th>Score</th>
+</tr>
+<tbody id="history"></tbody>
+</table>
+
+<!-- EDUCATION PANEL -->
+<div class="about">
+<h3>📚 Cyber Safety Tips</h3>
+<ul style="text-align:left">
+<li>Never click unknown email links.</li>
+<li>Always check the domain spelling.</li>
+<li>Use two-factor authentication.</li>
+<li>Never input passwords on suspicious websites.</li>
+<li>Free prizes often indicate scams.</li>
+</ul>
+</div>
+
+</div>
+
+<footer style="text-align:center;color:gray;margin:20px;">
+Cybersecurity Thesis Project | Demo Version
+</footer>
+
+<script>
+
+let historyCount = 0;
+
+// CHECK FUNCTION
+function checkUrl(){
+
+    let url = document.getElementById("urlInput").value.trim();
+    if(url===""){ alert("Enter URL"); return; }
+
+    document.getElementById("checklist").classList.remove("hidden");
+    document.getElementById("progressWrap").classList.remove("hidden");
+    document.getElementById("result").classList.add("hidden");
+    document.getElementById("report").classList.add("hidden");
+
+    resetIndicators();
+
+    let risk = 0;
+    let reasons = [];
+
+    setTimeout(()=>{
+        if(!url.startsWith("https://")){
+            risk += 15;
+            passFail("httpsCheck",false);
+            reasons.push("No HTTPS encryption.");
+        } else passFail("httpsCheck",true);
+    },300);
+
+    setTimeout(()=>{
+        if(url.length>75){
+            risk+=20;
+            passFail("lengthCheck",false);
+            reasons.push("Long suspicious URL.");
+        } else passFail("lengthCheck",true);
+    },600);
+
+    setTimeout(()=>{
+        let keywords=["login","verify","secure","update","confirm","password"];
+        let hit = keywords.some(k => url.toLowerCase().includes(k));
+        if(hit){
+            risk += 15;
+            passFail("keywordCheck",false);
+            reasons.push("Phishing keywords detected.");
+        } else passFail("keywordCheck",true);
+    },900);
+
+    setTimeout(()=>{
+        if(/[0-9]{3,}/.test(url)){
+            risk+=10;
+            passFail("numCheck",false);
+            reasons.push("Suspicious numeric patterns.");
+        } else passFail("numCheck",true);
+    },1200);
+
+    setTimeout(()=>{
+        if((url.match(/-/g)||[]).length>=4){
+            risk+=10;
+            passFail("hyphenCheck",false);
+            reasons.push("Too many hyphens.");
+        } else passFail("hyphenCheck",true);
+    },1500);
+
+    setTimeout(()=>{
+        showResult(url,risk,reasons);
+    },1800);
+}
+
+// PASS / FAIL DISPLAY
+function passFail(id, ok){
+    let el=document.getElementById(id);
+    el.innerHTML=(ok?"✅ ":"❌ ") + el.innerHTML.slice(2);
+}
+
+// RESET INDICATORS
+function resetIndicators(){
+    ["httpsCheck","lengthCheck","keywordCheck","numCheck","hyphenCheck"].forEach(id=>{
+        document.getElementById(id).innerHTML="⏳ "+document.getElementById(id).innerHTML.slice(2);
+    })
+}
+
+// SHOW RESULT
+function showResult(url, risk, reasons){
+
+    let status="SAFE";
+    let css="safe";
+
+    if(risk>=60){ status="PHISHING"; css="phishing"; }
+    else if(risk>=30){ status="SUSPICIOUS"; css="suspicious"; }
+
+    // PROGRESS BAR
+    let bar=document.getElementById("bar");
+    bar.style.width=risk+"%";
+    bar.innerText=risk+"%";
+
+    let html=`<h2>Status: ${status}</h2>
+              <h3>Risk Score: ${risk}%</h3>
+              <p><b>Reasons:</b></p>
+              <ul>`+(reasons.map(r=>"<li>"+r+"</li>").join("") || "<li>No major risks detected</li>")+`</ul>`;
+
+    let result=document.getElementById("result");
+    result.className="result "+css;
+    result.innerHTML=html;
+    result.classList.remove("hidden");
+
+    // SHOW REPORT OPTION
+    if(status!="SAFE"){
+        document.getElementById("report").classList.remove("hidden");
+    }
+
+    addHistory(url,status,risk);
+}
+
+// ADD HISTORY
+function addHistory(url,status,score){
+    historyCount++;
+    document.getElementById("history").innerHTML += `
+        <tr>
+          <td>${url}</td>
+          <td>${status}</td>
+          <td>${score}%</td>
+        </tr>`;
+}
+
+// REPORT
+function submitReport(){
+    let note=document.getElementById("reportNote").value.trim();
+    document.getElementById("reportStatus").innerText=
+        "✅ Report Submitted. Thank you for helping fight phishing!";
+    document.getElementById("reportNote").value="";
+}
+
+</script>
+
+</body>
+</html>
